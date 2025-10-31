@@ -1,0 +1,148 @@
+Documentation	 
+
+ 
+This document explains how the Python script processes a hierarchical Excel report definition 
+and produces a flattened Excel output showing each reporting line, its hierarchy, and related metadata. 
+ 
+
+1. Overview 
+
+ 
+The script reads a hierarchical report structure from an Excel file (`RRD015 - Public Sector Deposits (2).xlsx`) 
+and produces a flattened output (`Publicsectorskeleton.xlsx`) showing each line and its parent hierarchy. 
+It is mainly used for converting nested reporting structures into tabular formats. 
+ 
+
+2. Input File 
+
+ 
+Excel Sheet: 'Row and Columnar Specification' 
+ 
+Important Columns: 
+- SNO: Serial number (unique ID for each line) 
+- Parent Sno: The parent of that SNO (blank for top-level lines) 
+- Line Desc: Line description 
+- Indicator: Code or symbol for that line 
+- Flag: A marker or flag for additional information 
+- Line Range Start / End: Defines numeric range of line numbers (e.g., 1.001 – 1.005) 
+ 
+
+3. Step-by-Step Logic 
+
+Step 1: Reading and Preparing the Data 
+
+ 
+The Excel sheet is read using pandas. Columns SNO and Parent Sno are converted to integers 
+while allowing missing values. A secondary DataFrame is created to fill down any missing 
+descriptions or serials to ensure continuity in data processing. 
+ 
+
+Step 2: Identifying Top-Level Rows 
+
+ 
+Rows with no parent (Parent Sno = NaN) are identified as root nodes. 
+These represent the highest level in the hierarchy, such as major report sections. 
+ 
+
+Step 3: Building the Hierarchical Tree 
+
+ 
+Function: heirarchy_find(Serial, recurrsive_dict) 
+- Builds a nested dictionary structure showing parent-child relationships. 
+- Uses recursion to navigate all levels of the hierarchy. 
+Example Output: 
+{ 
+  1: { 2: {3: [], 4: []}, 5: {6: []} } 
+} 
+ 
+
+Step 4: Creating a Full Hierarchical Map 
+
+ 
+A dictionary named dict_for_heirarchy is created using heirarchy_find() for all top-level parents. 
+It represents the full tree structure of the report in memory. 
+ 
+
+Step 5: Recording Details for Each Node 
+
+ 
+Function: settingup_levels(dicti, parent) 
+- Traverses the hierarchy tree and records attributes for each SNO such as description, indicator, flag, and ranges. 
+- Builds a flat dictionary called level_tracker which stores complete metadata for each node. 
+ 
+
+Step 6: Extracting Full Lineage 
+
+ 
+Function: recursive_parent_line_desc_fetch(serial_no, fetched) 
+- For a given line (SNO), retrieves all its parent line descriptions recursively. 
+- Produces a structure showing all hierarchical levels like level_1, level_2, level_3, etc. 
+- Cleans unwanted characters like “(sum...)” and “:” from descriptions. 
+ 
+
+Step 7: Creating the Final Output Structure 
+
+ 
+For each entry in level_tracker: 
+1. Builds lineage (all parent levels). 
+2. Adds Indicator and Flag. 
+3. Expands line number ranges (e.g., 1.001–1.003). 
+Each row includes the full hierarchy, making the data suitable for database upload or review. 
+ 
+
+Step 8: Saving to Excel 
+
+ 
+The processed data is stored into a pandas DataFrame and written to 'Publicsectorskeleton.xlsx'. 
+The final sheet contains one row per reporting line with all parent levels and metadata. 
+ 
+
+4. Example 
+
+ 
+Input Example: 
+| SNO | Parent Sno | Line Desc | Indicator | Flag | Range Start | Range End | 
+|-----|-------------|------------|-----------|------|--------------|-----------| 
+| 1 | NaN | Deposits | A1 | Y | NaN | NaN | 
+| 2 | 1 | Public Sector Deposits | B1 | N | NaN | NaN | 
+| 3 | 2 | Central Govt. Deposits | C1 | Y | 1.001 | 1.003 | 
+ 
+Output Example: 
+| ID | Report_Id | Line_no | level_1 | level_2 | level_3 | Indicator | Flag | 
+|----|------------|----------|----------|----------|----------|------------|------| 
+| 3 | CRDB_BOT_008_1 | 1.001 | Deposits | Public Sector Deposits | Central Govt. Deposits | C1 | Y | 
+| 3 | CRDB_BOT_008_1 | 1.002 | Deposits | Public Sector Deposits | Central Govt. Deposits | C1 | Y | 
+| 3 | CRDB_BOT_008_1 | 1.003 | Deposits | Public Sector Deposits | Central Govt. Deposits | C1 | Y | 
+ 
+
+5. Function Summary 
+
+ 
+| Function Name | Purpose | Input | Output | 
+|----------------|----------|--------|---------| 
+| heirarchy_find | Builds nested parent-child dictionary | Parent SNO | Nested hierarchy dict | 
+| settingup_levels | Creates level_tracker (flat list with details) | Hierarchy dict | Updates global level_tracker | 
+| recursive_parent_line_desc_fetch | Gets all parent line descriptions | Child SNO | Dict of {level_n: description} | 
+ 
+
+6. Final Output File 
+
+ 
+File: Publicsectorskeleton.xlsx 
+Sheet: Sheet_1 
+ 
+Contains: 
+- Flattened hierarchy of all report lines 
+- Each line’s parent structure 
+- Expanded line ranges 
+- Indicator and flag info 
+- Report ID (CRDB_BOT_008_1) 
+ 
+
+7. Summary 
+
+ 
+This script reads and cleans a hierarchical Excel file, builds a structured hierarchy of report lines, 
+and then flattens it into an easy-to-read and analyzable format. 
+It is especially useful in financial and regulatory reporting where line items are organized hierarchically. 
+ 
